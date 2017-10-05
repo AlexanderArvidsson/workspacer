@@ -4,7 +4,7 @@
 import Data.Aeson
 import Data.ByteString.Lazy.Char8 (pack)
 import Data.Maybe
-import Data.List (intercalate)
+import Data.List (intercalate, find)
 import Data.Char (toUpper)
 import System.Process
 import GHC.Generics
@@ -45,6 +45,11 @@ getWorkspaceNames = map name
 readWorkspaces :: IO String
 readWorkspaces = readProcess "i3-msg" ["-t", "get_workspaces"] ""
 
+getCurrentWorkspace :: [Workspace] -> Maybe Workspace
+getCurrentWorkspace workspaces = find focused workspaces
+
+trim char = reverse . dropWhile (== char) . reverse
+
 openMenu :: [Workspace] -> String -> Options -> IO String
 openMenu workspaces title opts = do
   output <- case optMenu opts of
@@ -54,12 +59,20 @@ openMenu workspaces title opts = do
 
     "dmenu" -> readProcess "dmenu" ["-i"] menu
 
-  return (dropWhile (==':') output)
+  return (dropWhile (==':') (trim '\n' output))
 
   where menu = intercalate "\n" $ getWorkspaceNames workspaces
 
 setWorkspace :: String -> IO ()
 setWorkspace workspace = callCommand ("i3-msg workspace " ++ workspace)
+
+swapWorkspace :: String -> String -> IO ()
+swapWorkspace from to
+  | from /= to = callCommand ("i3-msg '"
+                           ++ "rename workspace " ++ from  ++ " to temporary; "
+                           ++ "rename workspace " ++ to    ++ " to " ++ from ++ "; "
+                           ++ "rename workspace temporary" ++ " to " ++ to ++ "'")
+  | otherwise = error "Cannot swap workspace with itself"
 
 moveContainerTo :: String -> IO ()
 moveContainerTo workspace
@@ -76,11 +89,19 @@ runWithOptions opts = do
       newWorkspace <- openMenu workspaces "Switch to workspace:" opts
       setWorkspace newWorkspace
 
+    WorkspaceSwap -> do
+      newWorkspace <- openMenu workspaces "Swap current workspace with:" opts
+
+      case getCurrentWorkspace workspaces of
+        (Just current) -> do
+          print (name current ++ " , " ++ newWorkspace)
+          swapWorkspace (name current) newWorkspace
+
     WorkspaceMove -> do
       newWorkspace <- openMenu workspaces "Move container to workspace:" opts
       moveContainerTo newWorkspace
 
-data Command = WorkspaceSet | WorkspaceMove
+data Command = WorkspaceSet | WorkspaceMove | WorkspaceSwap
   deriving (Show)
 
 data Options = Options { optCommand :: Command
@@ -96,9 +117,13 @@ optsSet = pure WorkspaceSet
 optsMove :: Parser Command
 optsMove = pure WorkspaceMove
 
+optsSwap :: Parser Command
+optsSwap = pure WorkspaceSwap
+
 optsCommand :: Parser Command
 optsCommand = subparser
   ( command "set"  (withInfo optsSet "Set the current workspace")
+ <> command "swap" (withInfo optsSwap "Swap current workspace with another")
  <> command "move" (withInfo optsMove "Move current container to workspace") )
 
 parseOptions :: Parser Options

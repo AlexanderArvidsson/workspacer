@@ -40,7 +40,7 @@ getWorkspaces json
   where list = decode (pack json) :: Maybe [Workspace]
 
 getWorkspaceNames :: [Workspace] -> [String]
-getWorkspaceNames workspaces = map name workspaces
+getWorkspaceNames = map name
 
 readWorkspaces :: IO String
 readWorkspaces = readProcess "i3-msg" ["-t", "get_workspaces"] ""
@@ -68,8 +68,6 @@ moveContainerTo workspace
 runWithOptions :: Options -> IO ()
 runWithOptions opts = do
   output <- readWorkspaces
-
-  putStrLn $ show opts
 
   let workspaces = getWorkspaces output
 
@@ -117,11 +115,3 @@ main :: IO ()
 main = 
   runWithOptions =<<
     execParser (parseOptions `withInfo` "Workspace action menus using i3-msg")
-
-  {- execParser opts >>= runWithOptions -}
-  {- where -}
-    {- parser = App <$> argument str (metavar "COMMAND") -}
-                 {- {- <*> switch (short 'e' <> -} -}
-                             {- {- long "excited" <> -} -}
-                             {- {- help "Run in excited mode") -} -}
-    {- opts = info parser mempty -}

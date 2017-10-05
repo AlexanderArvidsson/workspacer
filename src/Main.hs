@@ -118,7 +118,7 @@ optsMove :: Parser Command
 optsMove = pure WorkspaceMove
 
 optsSwap :: Parser Command
-optsSwap = pure WorkspaceMove
+optsSwap = pure WorkspaceSwap
 
 optsCommand :: Parser Command
 optsCommand = subparser
